@@ -8,37 +8,63 @@
 
 // Function to find the waiting time for all  
 // processes
-void findWaitingTimeRR(ProcessType plist[], int n,int quantum) 
+void findWaitingTimeRR(ProcessType plist[], int n, int quantum) 
 { 
-    int *rem_bt = malloc(n * sizeof(int));
-    int t = 0;
-    int done;
+    int *rem_bt   = malloc(n * sizeof(int));
+    int *admitted = calloc(n, sizeof(int));
+    int *queue    = malloc(n * sizeof(int));
+    int head = 0, count = 0, completed = 0, t = 0;
 
     for (int i = 0; i < n; i++) {
-      rem_bt[i] = plist[i].bt;
-      plist[i].wt = 0;
+        rem_bt[i] = plist[i].bt;
+        plist[i].wt = 0;
     }
 
-
-    do {
-        done = 1;
+    while (completed < n) {
         for (int i = 0; i < n; i++) {
-          if (rem_bt[i] > 0) {
-            done = 0;
-            if (rem_bt[i] > quantum) {
-              t += quantum;
-              rem_bt[i] -= quantum;
-            } else {
-              // last cycle for this process
-            t += rem_bt[i];
-            plist[i].wt = t - plist[i].bt;
-            rem_bt[i] = 0;
+            if (!admitted[i] && plist[i].art <= t) {
+                queue[(head + count) % n] = i;
+                count++;
+                admitted[i] = 1;
             }
-          }
         }
-    } while (!done);
+
+        if (count == 0) {
+            int next = INT_MAX;
+            for (int i = 0; i < n; i++)
+                if (!admitted[i] && plist[i].art < next) next = plist[i].art;
+            t = next;
+            continue;
+        }
+
+        int cur = queue[head];
+        head = (head + 1) % n;
+        count--;
+
+        int run = (rem_bt[cur] > quantum) ? quantum : rem_bt[cur];
+        t += run;
+        rem_bt[cur] -= run;
+
+        for (int i = 0; i < n; i++) {
+            if (!admitted[i] && plist[i].art <= t) {
+                queue[(head + count) % n] = i;
+                count++;
+                admitted[i] = 1;
+            }
+        }
+
+        if (rem_bt[cur] > 0) {
+            queue[(head + count) % n] = cur;
+            count++;
+        } else {
+            completed++;
+            plist[cur].wt = t - plist[cur].art - plist[cur].bt;
+        }
+    }
 
     free(rem_bt);
+    free(admitted);
+    free(queue);
 }
 
 // Function to find the waiting time for all  
@@ -88,14 +114,15 @@ void findWaitingTimeSJF(ProcessType plist[], int n)
 // Function to find the waiting time for all  
 // processes 
 void findWaitingTime(ProcessType plist[], int n)
-{ 
-    // waiting time for first process is 0, or the arrival time if not 
-    plist[0].wt = 0 +  plist[0].art; 
-  
-    // calculating waiting time 
-    for (int  i = 1; i < n ; i++ ) 
-        plist[i].wt =  plist[i-1].bt + plist[i-1].wt; 
-} 
+{
+    int t = 0;
+    for (int i = 0; i < n; i++) {
+        if (t < plist[i].art)        // CPU idles until this process arrives
+            t = plist[i].art;
+        plist[i].wt = t - plist[i].art;
+        t += plist[i].bt;
+    }
+}
   
 // Function to calculate turn around time 
 void findTurnAroundTime( ProcessType plist[], int n)
@@ -224,42 +251,38 @@ int main(int argc, char *argv[])
     ProcessType *proc_list;
   
     if (argc < 2) {
-		   fprintf(stderr, "Usage: ./schedsim <input-file-path>\n");
-		   fflush(stdout);
-		   return 1;
-	   }
+        fprintf(stderr, "Usage: ./schedsim <input-file-path>\n");
+        fflush(stdout);
+        return 1;
+    }
     
-  // FCFS
+    // FCFS
     n = 0;
     proc_list = initProc(argv[1], &n);
-  
     findavgTimeFCFS(proc_list, n);
-    
     printMetrics(proc_list, n);
+    free(proc_list);
   
-  // SJF
+    // SJF
     n = 0;
     proc_list = initProc(argv[1], &n);
-   
     findavgTimeSJF(proc_list, n); 
-   
     printMetrics(proc_list, n);
+    free(proc_list);
   
-  // Priority
+    // Priority
     n = 0; 
     proc_list = initProc(argv[1], &n);
-    
     findavgTimePriority(proc_list, n); 
-    
     printMetrics(proc_list, n);
+    free(proc_list);
     
-  // RR
+    // RR
     n = 0;
     proc_list = initProc(argv[1], &n);
-    
     findavgTimeRR(proc_list, n, quantum); 
-    
     printMetrics(proc_list, n);
+    free(proc_list);
     
     return 0; 
-} 
+}

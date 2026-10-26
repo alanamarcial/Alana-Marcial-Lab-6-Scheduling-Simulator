@@ -8,6 +8,23 @@
 
 // Function to find the waiting time for all  
 // processes
+// Admit every process that has arrived by time t, earliest arrival first
+static void admitArrivals(ProcessType plist[], int n, int t, int admitted[],
+                          int queue[], int head, int *count)
+{
+    for (;;) {
+        int best = -1;
+        for (int i = 0; i < n; i++)
+            if (!admitted[i] && plist[i].art <= t &&
+                (best == -1 || plist[i].art < plist[best].art))
+                best = i;
+        if (best == -1) return;
+        queue[(head + *count) % n] = best;
+        (*count)++;
+        admitted[best] = 1;
+    }
+}
+
 void findWaitingTimeRR(ProcessType plist[], int n, int quantum) 
 { 
     int *rem_bt   = malloc(n * sizeof(int));
@@ -21,13 +38,7 @@ void findWaitingTimeRR(ProcessType plist[], int n, int quantum)
     }
 
     while (completed < n) {
-        for (int i = 0; i < n; i++) {
-            if (!admitted[i] && plist[i].art <= t) {
-                queue[(head + count) % n] = i;
-                count++;
-                admitted[i] = 1;
-            }
-        }
+        admitArrivals(plist, n, t, admitted, queue, head, &count);
 
         if (count == 0) {
             int next = INT_MAX;
@@ -45,13 +56,7 @@ void findWaitingTimeRR(ProcessType plist[], int n, int quantum)
         t += run;
         rem_bt[cur] -= run;
 
-        for (int i = 0; i < n; i++) {
-            if (!admitted[i] && plist[i].art <= t) {
-                queue[(head + count) % n] = i;
-                count++;
-                admitted[i] = 1;
-            }
-        }
+        admitArrivals(plist, n, t, admitted, queue, head, &count);
 
         if (rem_bt[cur] > 0) {
             queue[(head + count) % n] = cur;
@@ -135,19 +140,20 @@ void findTurnAroundTime( ProcessType plist[], int n)
 // Function to sort the Process acc. to priority
 int my_comparer(const void *this, const void *that)
 { 
-  const ProcessType *a = (const ProcessType *)this;
-  const ProcessType *b = (const ProcessType *)that;
+    const ProcessType *a = (const ProcessType *)this;
+    const ProcessType *b = (const ProcessType *)that;
 
-  
-  if (a->pri < b->pri) return 1;
-  if (a->pri > b->pri) return -1;
-  
-  // same priority: keep first come first serve order.
-  // (qsort is not stable, so break ties on pid)
-  if (a-> pid > b->pid) return 1;
-  if (a-> pid < b->pid) return -1;
-  return 0;
-} 
+    // higher pri value goes first
+    if (a->pri < b->pri) return 1;
+    if (a->pri > b->pri) return -1;
+
+    // same priority: earlier arrival first, then lower pid
+    if (a->art > b->art) return 1;
+    if (a->art < b->art) return -1;
+    if (a->pid > b->pid) return 1;
+    if (a->pid < b->pid) return -1;
+    return 0;
+}
 
 //Function to calculate average time 
 void findavgTimeFCFS( ProcessType plist[], int n) 

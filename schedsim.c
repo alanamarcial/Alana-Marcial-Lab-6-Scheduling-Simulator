@@ -10,38 +10,80 @@
 // processes
 void findWaitingTimeRR(ProcessType plist[], int n,int quantum) 
 { 
-  /*
-     1. Create an array *rem_bt[]* to keep track of remaining burst time of processes. This array is initially a copy of *plist[].bt* (all processes burst times)
-     2. Store waiting times of processes in plist[].wt. Initialize this array as 0.
-     3. Initialize time : t = 0
-     4. Keep traversing the all processes while all processes are not done. Do following for i'th process if it is not done yet.
-        - If rem_bt[i] > quantum
-          (i)  t = t + quantum
-          (ii) bt_rem[i] -= quantum;
-        - Else // Last cycle for this process
-          (i)  t = t + bt_rem[i];
-          (ii) plist[i].wt = t - plist[i].bt
-          (iii) bt_rem[i] = 0; // This process is over
-       
-   */
-} 
+    int *rem_bt = malloc(n * sizeof(int));
+    int t = 0;
+    int done;
+
+    for (int i = 0; i < n; i++) {
+      rem_bt[i] = plist[i].bt;
+      plist[i].wt = 0;
+    }
+
+
+    do {
+        done = 1;
+        for (int i = 0; i < n; i++) {
+          if (rem_bt[i] > 0) {
+            done = 0;
+            if (rem_bt[i] > quantum) {
+              t += quantum;
+              rem_bt[i] -= quantum;
+            } else {
+              // last cycle for this process
+            t += rem_bt[i];
+            plist[i].wt = t - plist[i].bt;
+            rem_bt[i] = 0;
+            }
+          }
+        }
+    } while (!done);
+
+    free(rem_bt);
+}
 
 // Function to find the waiting time for all  
 // processes 
 void findWaitingTimeSJF(ProcessType plist[], int n)
 { 
-      /*
-       * 1 Traverse until all process gets completely executed.
-         - Find process with minimum remaining time at every single time lap.
-         - Reduce its time by 1.
-         - Check if its remaining time becomes 0 
-         - Increment the counter of process completion.
-         - Completion time of *current process = current_time +1;*
-         - Calculate waiting time for each completed process. *wt[i]= Completion time - arrival_time-burst_time*
-         - Increment time lap by one.
- 
-     */
+      int *rem_bt = malloc(n *sizeof(int));
+      int complete = 0;
+      int t = 0;
+
+      for (int i = 0; i < n; i++) {
+        rem_bt[i] = plist[i].bt;
+        plist[i].wt = 0;
+      }
+
+      while (complete < n) {
+
+
+        int shortest = -1;
+        int min_rem = INT_MAX;
+        for (int i = 0; i < n; i++) {
+            if (plist[i].art <= t && rem_bt[i] > 0 && rem_bt[i] < min_rem) {
+                min_rem = rem_bt[i];
+                shortest = i;
+            }
+        }
+
+
+      if (shortest == -1) {
+        t++;
+        continue;
+      }
+      rem_bt[shortest]--;
+      t++;
+
+      if (rem_bt[shortest] == 0) {
+        complete++;
+
+        plist[shortest].wt = t - plist[shortest].art - plist[shortest].bt;
+      }
+    }
+
+    free(rem_bt);
 } 
+
 
 // Function to find the waiting time for all  
 // processes 
@@ -66,13 +108,18 @@ void findTurnAroundTime( ProcessType plist[], int n)
 // Function to sort the Process acc. to priority
 int my_comparer(const void *this, const void *that)
 { 
+  const ProcessType *a = (const ProcessType *)this;
+  const ProcessType *b = (const ProcessType *)that;
+
   
-    /*  
-     * 1. Cast this and that into (ProcessType *)
-     * 2. return 1 if this->pri < that->pri
-     */ 
+  if (a->pri < b->pri) return 1;
+  if (a->pri > b->pri) return -1;
   
-    return 1;
+  // same priority: keep first come first serve order.
+  // (qsort is not stable, so break ties on pid)
+  if (a-> pid > b->pid) return 1;
+  if (a-> pid < b->pid) return -1;
+  return 0;
 } 
 
 //Function to calculate average time 
@@ -114,18 +161,20 @@ void findavgTimeRR( ProcessType plist[], int n, int quantum)
     printf("\n*********\nRR Quantum = %d\n", quantum);
 }
 
-//Function to calculate average time 
-void findavgTimePriority( ProcessType plist[], int n) 
-{ 
-  
-   /*
-    * 1- Sort the processes (i.e. plist[]), burst time and priority according to the priority.
-    * 2- Now simply apply FCFS algorithm.
-    */
-  
-    //Display processes along with all details 
+//Function to calculate average time
+void findavgTimePriority( ProcessType plist[], int n)
+{
+    // 1- Sort the processes according to priority
+    qsort(plist, n, sizeof(ProcessType), my_comparer);
+ 
+    // 2- Now simply apply FCFS algorithm
+    findWaitingTime(plist, n);
+    findTurnAroundTime(plist, n);
+ 
+    //Display processes along with all details
     printf("\n*********\nPriority\n");
 }
+ 
 
 void printMetrics(ProcessType plist[], int n)
 {
